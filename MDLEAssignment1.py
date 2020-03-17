@@ -1,4 +1,4 @@
-from pyspark import SparkContext, SparkFiles
+from pyspark import SparkContext
 import itertools
 from optparse import OptionParser
 import os, sys
