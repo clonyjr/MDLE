@@ -1,13 +1,17 @@
 from pyspark import SparkContext, SparkFiles
 import itertools
-import os
+from optparse import OptionParser
+import os, sys
 
-# André Luis - 62058
+# Andre Luis - 62058
 # Clony Abreu - 94085
+"""
+Usage:
+$python MDLEAssingment1.py -f "soc-LiveJournal1Adj_sample.txt"
+"""
 
-#todo change code to allow the user information to indicate the file to be read
-FILE_NAME_TO_READ = os.path.join("data", "soc-LiveJournal1Adj_sample.txt")
-DIRECTORY_NAME_TO_SAVE = os.path.join("data", "ASSIGNMENT1-1")
+FILE_NAME_TO_READ = None
+DIRECTORY_NAME_TO_SAVE = os.path.join("data", "OUTPUT")
 
 class MDLEAssignment1(object):
 
@@ -18,7 +22,8 @@ class MDLEAssignment1(object):
         For example, the line: ``0    1,2,3,4, ...`` will get parsed to:
         ``(0, [1, 2, 3, 4, ...])`` wich will allow create new friendship in
         That is, a python tuple where the first element is an int and the second element is a List[int]
-        :param line: str
+
+        :param line: string
         :return: Tuple[int, List[int]], the parsed line
         """
         split = line.split()
@@ -44,16 +49,17 @@ class MDLEAssignment1(object):
                 ((1,3), 1),
                 ((2,3), 1)
             ]
-        Essentially, the friend ownership structure is converted a list of all connection information embedded in the
-        structure. For example, users 0 and 1 are already connected, so that connection is represented by ``((0,1), 0)``.
-        The final ``0`` indicates that these users are currently friends.
-        As another example, the structure encodes the fact that users 1 and 2 have a common friend (in this case, the mutual
-        friend is friend 0). So, the resulting connection is represented by ``((1,2), 1)``, where the ``1`` indicates that
-        these users share a single common friend.
-        Finally, it is important to note that the "key" in each of these elements (namely the ``(user_id_0, user_id_1)``
-        pair) is deterministically ordered. It is important for each unique pair of users to be grouped in the same way,
-        so the bi-directional relationship must be retained by ordering the tuple by userId (or any other deterministic
-        ordering. Simple "greater-than" comparison just happens to be the fastest).
+        Essentially, the friend ownership structure is converted into a list of all connection information embedded in
+        the structure. For example, users 0 and 1 are already connected, so that connection is represented by
+        ``((0,1), 0)``. The final ``0`` indicates that these users are currently friends.
+        As another example, the structure encodes the fact that users 1 and 2 have a common friend (in this case, the
+        mutual friend is friend 0). So, the resulting connection is represented by ``((1,2), 1)``, where the ``1``
+        indicates that these users share a single common friend.
+        The "key" in each of these elements (namely the ``(user_id_0, user_id_1)``pair) is deterministically ordered. It
+        is important for each unique pair of users to be grouped in the same way,so the bi-directional relationship must
+        be retained by ordering the tuple by userId (or any other deterministic ordering. Simple "greater-than"
+        comparison just happens to be the fastest).
+
         :param bonded_friendships: the friendship bonded object
         :return: List[Tuple[Tuple[int, int], int]] the embedded connections
         """
@@ -93,6 +99,7 @@ class MDLEAssignment1(object):
         will be returned in a List.
         A "recommendation" has the following form::
             (user_id_0, (suggested_user, common_friends_score))
+
         :param common_friend_score_item: a common friend score item
         :return: List[Tuple[int, Tuple[int, int]]] two recommendation items
         """
@@ -130,6 +137,29 @@ class MDLEAssignment1(object):
         return list(map(lambda x: x[0], suggestions))
 
 if __name__ == '__main__':
+    optparser = OptionParser()
+    optparser.add_option('-f', '--inputFile',
+                         dest='input',
+                         help='filename containing csv',
+                         default=None)
+    optparser.add_option('-o', '--outputDir',
+                         dest='outputDir',
+                         help='output directory',
+                         default=None)
+
+    (options, args) = optparser.parse_args()
+
+    if options.input is None:
+        FILE_NAME_TO_READ = sys.stdin
+    elif options.input is not None:
+        FILE_NAME_TO_READ = os.path.join("data", options.input)
+    #TODO Not working, got test. DIRECTORY_NAME_TO_SAVE variable has None as value, even after attribution on lin 158
+    #elif options.outputDir is not None:
+     #   DIRECTORY_NAME_TO_SAVE = os.path.join("data", options.outputDir)
+    else:
+        print('No dataset filename specified\n')
+        sys.exit('System will exit')
+
     # Initialize spark context
     sc = SparkContext(appName="Spark_FileReader")
 
