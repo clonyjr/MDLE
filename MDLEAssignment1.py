@@ -3,11 +3,10 @@ import itertools
 from optparse import OptionParser
 import os, sys
 from datetime import datetime
+import logging
 
 # Andre Luis - 62058
 # Clony Abreu - 94085
-
-
 
 """
 Usage:
@@ -16,10 +15,10 @@ $python MDLEAssingment1.py -f "soc-LiveJournal1Adj_sample.txt"
 
 FILE_NAME_TO_READ = None
 DIRECTORY_NAME_TO_SAVE = os.path.join("data", "OUTPUT")
-
 PRINT_TIME = True
-
 APP_NAME = "FREQ_ITEMS"
+logging.basicConfig(filename='lshlog.log', filemode='a', format='%(asctime)s %(levelname)s - %(message)s'
+                    , datefmt='%d-%b-%y %H:%M:%S', level=logging.DEBUG)
 
 class MDLEAssignment1(object):
 
@@ -169,11 +168,12 @@ if __name__ == '__main__':
     # Initialize spark context
     conf = SparkConf().setAppName(APP_NAME).setMaster("local[*]")
     sc = SparkContext(conf=conf)
+    logging.debug('Apache-Spark started')
 
     # Read from text file, split each line into "words" by any whitespace (i.e. empty parameters to string.split())
     lines = sc.textFile(FILE_NAME_TO_READ)
 
-    if PRINT_TIME : print ('Frequent Items=>Start=>%s'%(str(datetime.now())))
+    if PRINT_TIME: logging.debug('Frequent Items=>Start=>%s' % (str(datetime.now())))
     # Map each line to the form: (user_id, [friend_id_0, friend_id_1, ...])
     friendship_bind = lines.map(MDLEAssignment1().parse_to_bonded_friendship)
 
@@ -196,4 +196,5 @@ if __name__ == '__main__':
     # Save to output directory, end context
     suggestions.saveAsTextFile(DIRECTORY_NAME_TO_SAVE)
     sc.stop()
-    if PRINT_TIME : print ('Frequent Items =>End=>%s'%(str(datetime.now())))
+    logging.debug('Apache-Spark stopped')
+    if PRINT_TIME: logging.debug('Frequent Items =>End=>%s' % (str(datetime.now())))
