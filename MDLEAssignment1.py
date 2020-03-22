@@ -1,10 +1,14 @@
-from pyspark import SparkContext
+from pyspark import SparkContext, SparkConf
 import itertools
 from optparse import OptionParser
 import os, sys
+from datetime import datetime
 
 # Andre Luis - 62058
 # Clony Abreu - 94085
+
+
+
 """
 Usage:
 $python MDLEAssingment1.py -f "soc-LiveJournal1Adj_sample.txt"
@@ -12,6 +16,10 @@ $python MDLEAssingment1.py -f "soc-LiveJournal1Adj_sample.txt"
 
 FILE_NAME_TO_READ = None
 DIRECTORY_NAME_TO_SAVE = os.path.join("data", "OUTPUT")
+
+PRINT_TIME = True
+
+APP_NAME = "FREQ_ITEMS"
 
 class MDLEAssignment1(object):
 
@@ -26,13 +34,13 @@ class MDLEAssignment1(object):
         :param line: string
         :return: Tuple[int, List[int]], the parsed line
         """
-        split = line.split()
-        user_id = int(split[0])
+        _split = line.split()
+        user_id = int(_split[0])
 
-        if len(split) == 1:
+        if len(_split) == 1:
             friends = []
         else:
-            friends = list(map(lambda x: int(x), split[1].split(',')))
+            friends = list(map(lambda x: int(x), _split[1].split(',')))
 
         return user_id, friends
 
@@ -49,7 +57,7 @@ class MDLEAssignment1(object):
                 ((1,3), 1),
                 ((2,3), 1)
             ]
-        Essentially, the friend ownership structure is converted into a list of all connection information embedded in
+        The friend ownership structure is converted into a list of all connection information embedded in
         the structure. For example, users 0 and 1 are already connected, so that connection is represented by
         ``((0,1), 0)``. The final ``0`` indicates that these users are currently friends.
         As another example, the structure encodes the fact that users 1 and 2 have a common friend (in this case, the
@@ -153,19 +161,19 @@ if __name__ == '__main__':
         FILE_NAME_TO_READ = sys.stdin
     elif options.input is not None:
         FILE_NAME_TO_READ = os.path.join("data", options.input)
-    #TODO Not working, got test. DIRECTORY_NAME_TO_SAVE variable has None as value, even after attribution on lin 158
-    #elif options.outputDir is not None:
-     #   DIRECTORY_NAME_TO_SAVE = os.path.join("data", options.outputDir)
+
     else:
         print('No dataset filename specified\n')
         sys.exit('System will exit')
 
     # Initialize spark context
-    sc = SparkContext(appName="Spark_FileReader")
+    conf = SparkConf().setAppName(APP_NAME).setMaster("local[*]")
+    sc = SparkContext(conf=conf)
 
     # Read from text file, split each line into "words" by any whitespace (i.e. empty parameters to string.split())
     lines = sc.textFile(FILE_NAME_TO_READ)
 
+    if PRINT_TIME : print ('Frequent Items=>Start=>%s'%(str(datetime.now())))
     # Map each line to the form: (user_id, [friend_id_0, friend_id_1, ...])
     friendship_bind = lines.map(MDLEAssignment1().parse_to_bonded_friendship)
 
@@ -188,3 +196,4 @@ if __name__ == '__main__':
     # Save to output directory, end context
     suggestions.saveAsTextFile(DIRECTORY_NAME_TO_SAVE)
     sc.stop()
+    if PRINT_TIME : print ('Frequent Items =>End=>%s'%(str(datetime.now())))
