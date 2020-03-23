@@ -2,19 +2,19 @@ from __future__ import print_function
 from __future__ import division
 from pyspark import SparkConf, SparkContext
 from datetime import datetime
-import os, sys, logging, mmh3, math
+import os, sys, mmh3, math
 from optparse import OptionParser
 
 
-DIRECTORY_TO_SAVE = "/Users/clonyjr/Library/Mobile Documents/com~apple~CloudDocs/" \
-                    "Aveiro/UA/CLONY/MEI/2019-2020-SEM-2/MDLE/Assignments/Assignment 1/MovieSummaries"
-# "s3://clony94085-assignment1/data"
-FILE_NAME_TO_READ = "plot_summaries_sample2.txt"
+DIRECTORY_TO_READ = "s3://clony94085-assignment1/data"
 
-FILEPATH = os.path.join(DIRECTORY_TO_SAVE, FILE_NAME_TO_READ)
+FILE_NAME_TO_READ = "plot_summaries.txt"
+# "plot_summaries.txt"
 
-logging.basicConfig(filename='lshlog.log', filemode='a', format='%(asctime)s %(levelname)s - %(message)s'
-                    , datefmt='%d-%b-%y %H:%M:%S', level=logging.DEBUG)
+FILEPATH = os.path.join(DIRECTORY_TO_READ, FILE_NAME_TO_READ)
+
+# logging.basicConfig(filename='lshlog.log', filemode='a', format='%(asctime)s %(levelname)s - %(message)s'
+#                    , datefmt='%d-%b-%y %H:%M:%S', level=logging.DEBUG)
 
 APP_NAME = 'LSH'
 BANDS = 20
@@ -35,7 +35,7 @@ def setOutputData(filename='', jaccard_similarity_dict={}):
             pass
         ##########
 
-        logging.debug('**jaccard_similarity_dict = %s' % (jaccard_similarity_dict))
+
         for item in jaccard_similarity_dict:
             print("Key : {} , Value : {}".format(item, jaccard_similarity_dict[item]))
 
@@ -47,9 +47,7 @@ def setOutputData(filename='', jaccard_similarity_dict={}):
         else:
             pass
     except IOError as _err:
-        logging.error('File error: ' + str(_err))
         exit()
-    logging.info('Locality Sensitive Hashing =>Finish=>%s' % (str(datetime.now())))
 
 
 def schingling(doc):
@@ -84,11 +82,11 @@ class Minhashing(object):
         _signatures = []
         _signature = None
 
-        logging.debug('Minhash.get_signature=>data_list=%s, seed=%d' % (data_list, seed))
+        # logging.debug('Minhash.get_signature=>data_list=%s, seed=%d' % (data_list, seed))
         for data in data_list:
             _signature = Minhashing.hash_func(data, seed)
             _signatures.append(_signature)
-        logging.debug('Minhash.get_signature=>_signatures=%s'%(_signatures))
+        # logging.debug('Minhash.get_signature=>_signatures=%s'%(_signatures))
         return min(_signatures)
 
 class LSH(object):
@@ -97,14 +95,25 @@ class LSH(object):
     hash_alg = None
     jaccard_similarity = {} # {(set1, set2): jaccard_similarity, ...}
 
-    def __init__(self, bands=BANDS, rows = ROWS, hash_function=customized_hash):
+    def __init__(self, bands=BANDS, rows=ROWS, hash_function=customized_hash):
 
-        self.conf = SparkConf().setAppName(APP_NAME).setMaster("local[*]")
+        self.conf = SparkConf().setAppName(APP_NAME) \
+            .setMaster("local[*]") \
+            .set('spark.executor.cores', 4) \
+            .set('spark.executor.memory', '3g') \
+            .set('spark.driver.memory', '3g') \
+            .set('spark.yarn.executor.memoryOverhead', 1024) \
+            .set('spark.dynamicAllocation.enabled', 'true') \
+            .set('spark.dynamicAllocation.maxExecutors', 250) \
+            .set("spark.serializer", "org.apache.spark.serializer.KryoSerializer") \
+            .set("spark.kryoserializer.buffer.max.mb", 1024)
+
         # Create a context for the job.
         self.sc = SparkContext(conf=self.conf)
-        logging.debug("Apache-Spark started")
+        # logging.debug("Apache-Spark started")
 
-        data = self.sc.textFile(FILEPATH).map(lambda l: l.split("\t"))
+        # data.map(lambda x: x.encode("ascii", "ignore").split())
+        data = self.sc.textFile(FILEPATH).map(lambda l: l.encode("ascii", "ignore").split('\t'))
         data_set = data.map(lambda doc: (int(doc[0]), doc[1].lower())).mapValues(schingling).mapValues(set)
         LSH.hash_alg = Minhashing(hash_function)
         LSH.band = bands
@@ -124,8 +133,8 @@ class LSH(object):
         _signatures = []
         _band = 0
 
-        logging.debug('LSH.get_set_signatures=>seed_list=%s' % (seed_list))
-        logging.debug('LSH.get_set_signatures=>set=%s' % (str(set)))
+        # logging.debug('LSH.get_set_signatures=>seed_list=%s' % (seed_list))
+        # logging.debug('LSH.get_set_signatures=>set=%s' % (str(set)))
         for seed in seed_list:
             if _band < math.floor(seed/LSH.rows):
                 _result.append((tuple(_signatures), set[0]))
@@ -134,7 +143,7 @@ class LSH(object):
             else: pass
             _signatures.append(LSH.hash_alg.get_value(set[1], seed)) # Get minhash signature for each row/seed
         _result.append((tuple(_signatures), set[0]))
-        logging.debug('Minhash results=%s' % (_result))
+        # logging.debug('Minhash results=%s' % (_result))
         return _result
 
     def get_rows(self, bands, rows):
@@ -145,7 +154,7 @@ class LSH(object):
             for j in range(rows):
                 _rows.append(i*rows+j)
 
-        logging.debug('LSH.get_rows=%s' % (_rows))
+        # logging.debug('LSH.get_rows=%s' % (_rows))
         return _rows
 
 
@@ -155,15 +164,15 @@ class LSH(object):
         _row_list = self.b_row_list.value
         _rdd_dataset = self.rdd_dataset
         _dataset = self.b_dataset.value
-        logging.debug('LSH.execute=>_rdd_dataset =%s' % (str(_rdd_dataset)))
+        # logging.debug('LSH.execute=>_rdd_dataset =%s' % (str(_rdd_dataset)))
 
         _rdd_similar_set_candidate_list = _rdd_dataset.map(lambda x: LSH.get_set_signatures(x, _row_list)).flatMap(lambda x:
                                                                                                                    ((x[i][0], x[i][1]) for i in range(len(x)))).groupByKey().map(lambda x: tuple(x[1])).filter(lambda x: len(x)>1).distinct()
-        logging.debug('LSH.execute=>_rdd_similar_set_candidate_list =%s' % (_rdd_similar_set_candidate_list.collect()))
+        # logging.debug('LSH.execute=>_rdd_similar_set_candidate_list =%s' % (_rdd_similar_set_candidate_list.collect()))
 
         rdd_dataset = _rdd_similar_set_candidate_list.map(lambda candidate_sets: LSH.get_jaccard_similarity(_dataset, candidate_sets))
         _similar_sets_dict = rdd_dataset.flatMap(lambda x: x.items()).collectAsMap()
-        logging.debug('LSH.execute=>_similar_sets_dict2=%s' % (_similar_sets_dict))
+        # logging.debug('LSH.execute=>_similar_sets_dict2=%s' % (_similar_sets_dict))
         return _similar_sets_dict
 
 
@@ -181,8 +190,8 @@ class LSH(object):
         _total_set_list = []
         _counter = 0
         _jaccard_similarity = 0.0
-        logging.debug('LSH.get_jaccard_similarity=>candidates=%s' % (str(candidates)))
-        logging.debug('type(_dataset_dict)=%s, _dataset_dict = %s' % (type(_dataset_dict),_dataset_dict))
+        # logging.debug('LSH.get_jaccard_similarity=>candidates=%s' % (str(candidates)))
+        # logging.debug('type(_dataset_dict)=%s, _dataset_dict = %s' % (type(_dataset_dict),_dataset_dict))
 
         # Generate combination for each set in candidate sets.
         for i in range(len(candidates)):
@@ -207,11 +216,11 @@ class LSH(object):
                         LSH.jaccard_similarity.update({tuple((_b_set, _s_set)):_jaccard_similarity})
                         LSH.jaccard_similarity.update({tuple((_s_set, _b_set)):_jaccard_similarity})
 
-                    logging.debug('jaccard similarity _result=%s' % (LSH.jaccard_similarity))
+                    # logging.debug('jaccard similarity _result=%s' % (LSH.jaccard_similarity))
                 else: pass
 
             _similar_dict[_b_set]=LSH.jaccard_similarity
-        logging.debug('LSH.get_jaccard_similarity=> _similar_dict=%s' % (_similar_dict))
+        # logging.debug('LSH.get_jaccard_similarity=> _similar_dict=%s' % (_similar_dict))
         return _similar_dict
 
 if __name__ == '__main__':
@@ -224,17 +233,16 @@ if __name__ == '__main__':
 
     (options, args) = optparser.parse_args()
 
+
     if options.input is None:
         FILE_NAME_TO_READ = sys.stdin
     elif options.input is not None:
-        FILE_NAME_TO_READ = os.path.join(DIRECTORY_TO_SAVE, options.input)
+        FILE_NAME_TO_READ = os.path.join(DIRECTORY_TO_READ, options.input)
 
-    if PRINT_TIME: logging.debug('Locality Sensitive Hashing =>Start=>%s' % (str(datetime.now())))
-    logging.info('Locality Sensitive Hashing =>Start=>%s' % (str(datetime.now())))
+    if PRINT_TIME: print ('Locality Sensitive Hashing =>Start=>%s' % (str(datetime.now())))
     jaccard_similarity_dict = {}
 
     lsh = LSH(BANDS, ROWS)
     jaccard_similarity_dict = lsh.execute()
     setOutputData(OUTPUT_FILE, jaccard_similarity_dict)
-    if PRINT_TIME: logging.debug('Locality Sensitive Hashing =>Finish=>%s' % (str(datetime.now())))
-    logging.info('Locality Sensitive Hashing =>Finish=>%s' % (str(datetime.now())))
+    if PRINT_TIME: print ('Locality Sensitive Hashing =>Finish=>%s' % (str(datetime.now())))
