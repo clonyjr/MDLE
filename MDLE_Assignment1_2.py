@@ -102,8 +102,8 @@ def confidenceInterest(pairs, newItem, occurrences):
 # # A-Priori
 
 def apriori(codePatients):
-#     codePatient = codePatients.collect()
-    codePatient = codePatients.take(500)
+    codePatient = codePatients.collect()
+    # codePatient = codePatients.take(500)
     item_counts, pair_counts = defaultdict(int),  defaultdict(int)
     for basket in codePatient:
         for item in basket[1]:
@@ -111,8 +111,8 @@ def apriori(codePatients):
     return item_counts    
 
 def aprioriSecondPass(codePatients, freqItems):
-#     codePatient = codePatients.collect()
-    codePatient = codePatients.take(500)
+    codePatient = codePatients.collect()
+    # codePatient = codePatients.take(500)
     pair_counts = defaultdict(int)
     for basket in codePatient:
         for i in basket[1]:
@@ -125,8 +125,8 @@ def aprioriSecondPass(codePatients, freqItems):
     return pair_counts
 
 def aprioriThirdPass(codePatients, freqItems, pairs, occurrences):
-#     codePatient = codePatients.collect()
-    codePatient = codePatients.take(500)
+    codePatient = codePatients.collect()
+    # codePatient = codePatients.take(500)
     triple_counts = defaultdict(int)
     for basket in codePatient:
         for i in basket[1]:
